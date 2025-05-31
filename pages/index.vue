@@ -170,7 +170,7 @@ const formatDate = (timestamp) => {
 const loadChatHistoryList = async () => {
   try {
     console.log('Attempting to fetch history list from /api/history');
-    const response = await fetch('http://localhost:3001/api/history');
+    const response = await fetch('https://nintendo-back-m88k.vercel.app/api/history');
     if (!response.ok) {
       throw new Error(`HTTP error! status: ${response.status}`);
     }
@@ -193,13 +193,13 @@ const loadChatHistoryList = async () => {
 
 const loadChat = async (chatId) => {
   try {
-     const response = await fetch(`http://localhost:3001/api/history/${chatId}`);
+     const response = await fetch(`https://nintendo-back-m88k.vercel.app/api/history/${chatId}`);
      if (!response.ok) {
        throw new Error(`HTTP error! status: ${response.status}`);
      }
      const chatData = await response.json();
      messages.value = chatData.conversation; // Cargar los mensajes del chat seleccionado
-     currentChatId.value = chatId; // Establecer el chat activo
+     currentChatId.value = chatId; // Establo
      console.log('Loaded chat:', chatData);
 
   } catch (error) {
@@ -239,14 +239,14 @@ const handleNewMessage = async () => {
       ...messages.value.map(msg => ({ role: msg.role, content: msg.content }))
     ];
 
-    const response = await fetch('http://localhost:3001/api/recognize', {
+    const response = await fetch('https://nintendo-back-m88k.vercel.app/api/recognize', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
         messages: messagesToSend,
-        chatId: currentChatId.value // Enviar el ID del chat actual
+        chatId: currentChatId.value // Enviar el ID del chat 
       })
     })
 
