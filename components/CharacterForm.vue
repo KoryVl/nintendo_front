@@ -10,6 +10,7 @@
         v-model="formData.question"
         rows="3"
         required
+        @keydown.enter.prevent="onSubmit"
         class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 sm:text-sm"
         placeholder="Ej: Cuéntame sobre los personajes principales de Super Mario 64..."
       ></textarea>
@@ -37,9 +38,11 @@ const formData = ref({
 })
 
 const onSubmit = () => {
-  emit('submit', formData.value)
-  // Clear the question after submission for a new turn
-  formData.value.question = '';
+  if (formData.value.question.trim()) {
+    emit('submit', formData.value)
+    // Clear the question after submission for a new turn
+    formData.value.question = ''
+  }
 }
 </script>
 
