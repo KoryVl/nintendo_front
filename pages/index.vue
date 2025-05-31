@@ -22,11 +22,38 @@
     </header>
 
     <!-- Main Content -->
-    <main class="flex-grow max-w-4xl mx-auto py-6 sm:px-6 lg:px-8 w-full">
-      <div class="px-4 py-6 sm:px-0 h-full flex flex-col">
+    <main class="flex-grow max-w-4xl mx-auto py-6 sm:px-6 lg:px-8 w-full flex">
+      <!-- Sidebar for History List -->
+      <aside class="w-64 bg-white rounded-lg shadow-lg p-6 mr-4 overflow-y-auto">
+        <h2 class="text-xl font-bold text-gray-800 mb-4">Historial de Chats</h2>
+        <button
+          @click="startNewChat"
+          class="w-full bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600 transition-colors mb-4"
+        >
+          + Nuevo Chat
+        </button>
+        <div v-if="chatHistoryList && chatHistoryList.length > 0" class="space-y-3">
+          <div
+            v-for="chat in chatHistoryList"
+            :key="chat._id"
+            @click="loadChat(chat._id)"
+            class="cursor-pointer hover:bg-gray-100 p-3 rounded-md transition-colors"
+            :class="{'bg-red-100 border-l-4 border-red-500': chat._id === currentChatId}"
+          >
+            <h3 class="font-medium text-gray-800">{{ chat.title }}</h3>
+            <p class="text-xs text-gray-500">{{ formatDate(chat.lastUpdated) }}</p>
+          </div>
+        </div>
+        <div v-else class="text-center text-gray-500 text-sm">
+          No hay chats guardados.
+        </div>
+      </aside>
+
+      <!-- Chat Window and Input -->
+      <div class="flex-grow flex flex-col">
         <!-- Chat Window -->
-        <div class="flex-grow bg-white rounded-lg shadow-lg p-6 overflow-y-auto mb-4 chat-container">
-          <div v-for="message in messages" :key="message.id" class="mb-6 message-wrapper">
+        <div ref="chatContainerRef" class="flex-grow bg-white rounded-lg shadow-lg p-6 overflow-y-auto mb-4 chat-container">
+          <div v-for="message in messages" :key="message.timestamp + '-' + message.content" class="mb-6 message-wrapper">
             <!-- Mensaje del Usuario -->
             <div v-if="message.role === 'user'" class="flex justify-end">
               <div class="bg-red-500 text-white rounded-2xl p-4 max-w-sm shadow-md message-bubble user-message">
@@ -61,7 +88,7 @@
           </div>
 
           <!-- Initial message if no history -->
-          <div v-if="messages.length === 0" class="text-center text-gray-500 welcome-message">
+          <div v-if="messages.length === 0 && !loading" class="text-center text-gray-500 welcome-message">
             <p class="text-lg font-medium">¡Hola! Soy tu Nintendo Explorer AI. Pregúntame lo que quieras sobre la historia, juegos, personajes o consolas de Nintendo. 🎮✨</p>
           </div>
         </div>
@@ -83,7 +110,7 @@
           <div>
             <button
               type="submit"
-              :disabled="loading"
+              :disabled="loading || !formData.question.trim()"
               class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <span v-if="!loading">Explorar</span>
@@ -100,62 +127,6 @@
       </div>
     </main>
 
-    <!-- Chat History Section -->
-    <section class="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8 w-full">
-      <div class="px-4 py-6 sm:px-0">
-        <h2 class="text-2xl font-bold text-gray-800 mb-4">Historial de Chats</h2>
-        <div class="bg-white rounded-lg shadow-lg p-6">
-          <div v-if="chatHistory.length > 0" class="space-y-2">
-            <div v-for="chat in chatHistory" :key="chat.id" class="border border-gray-200 rounded-lg">
-              <!-- Chat Header -->
-              <div
-                class="flex justify-between items-center p-4 cursor-pointer hover:bg-gray-50"
-                @click="toggleChat(chat.id)"
-              >
-                <div class="flex items-center space-x-3">
-                  <svg
-                    class="w-5 h-5 transform transition-transform"
-                    :class="{ 'rotate-90': expandedChats[chat.id] }"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                  </svg>
-                  <div>
-                    <h3 class="font-medium text-gray-900">
-                      {{ getChatTitle(chat) }}
-                    </h3>
-                    <p class="text-sm text-gray-500">{{ formatDate(chat.timestamp) }}</p>
-                  </div>
-                </div>
-              </div>
-
-              <!-- Chat Content (Collapsible) -->
-              <div
-                v-show="expandedChats[chat.id]"
-                class="border-t border-gray-200 bg-gray-50 p-4"
-              >
-                <div class="space-y-3">
-                  <div v-for="message in chat.messages" :key="message.id" class="text-sm">
-                    <div class="flex items-start space-x-2">
-                      <span class="font-semibold min-w-[100px]">
-                        {{ message.role === 'user' ? 'Tú' : 'Nintendo Explorer AI' }}:
-                      </span>
-                      <span class="text-gray-600">{{ message.content }}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-          <div v-else class="text-center text-gray-500 py-4">
-            No hay chats guardados
-          </div>
-        </div>
-      </div>
-    </section>
-
     <!-- Footer -->
     <footer class="bg-red-600 text-white py-4 mt- auto">
       <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -169,13 +140,13 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, nextTick } from 'vue'
 
 const messages = ref([])
 const loading = ref(false)
 const isLoading = ref(true)
-const chatHistory = ref([])
-const expandedChats = ref({})
+const chatHistoryList = ref([]) // Para la lista de historiales
+const currentChatId = ref(null) // Para el chat actual activo
 const formData = ref({
   question: ''
 })
@@ -196,58 +167,77 @@ const formatDate = (timestamp) => {
   })
 }
 
-const getChatTitle = (chat) => {
-  const firstUserMessage = chat.messages.find(msg => msg.role === 'user')
-  if (firstUserMessage) {
-    const content = firstUserMessage.content
-    return content.length > 50 ? content.substring(0, 50) + '...' : content
-  }
-  return 'Chat sin título'
-}
-
-const toggleChat = (chatId) => {
-  expandedChats.value[chatId] = !expandedChats.value[chatId]
-}
-
-const saveChatToHistory = () => {
-  if (messages.value.length > 0) {
-    const chat = {
-      id: Date.now(),
-      timestamp: new Date(),
-      messages: [...messages.value]
+const loadChatHistoryList = async () => {
+  try {
+    console.log('Attempting to fetch history list from /api/history');
+    const response = await fetch('http://localhost:3001/api/history');
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
-    chatHistory.value.unshift(chat)
-    if (chatHistory.value.length > 10) {
-      chatHistory.value.pop() // Keep only the last 10 chats
-    }
-    localStorage.setItem('chatHistory', JSON.stringify(chatHistory.value))
-  }
-}
+    const data = await response.json(); // Get the raw data
+    console.log('Raw data received from /api/history:', data);
+    chatHistoryList.value = data; // Assign the data to the ref
+    console.log('Assigned to chatHistoryList.value:', chatHistoryList.value);
 
-const loadChat = (chat) => {
-  messages.value = [...chat.messages]
-}
+    // Opcional: Cargar el primer chat si existe uno al cargar la lista
+    if (chatHistoryList.value.length > 0 && !currentChatId.value) {
+      loadChat(chatHistoryList.value[0]._id);
+      console.log('Loading first chat from history list.');
+    }
+
+  } catch (error) {
+    console.error('Error loading chat history list:', error);
+    chatHistoryList.value = [];
+  }
+};
+
+const loadChat = async (chatId) => {
+  try {
+     const response = await fetch(`http://localhost:3001/api/history/${chatId}`);
+     if (!response.ok) {
+       throw new Error(`HTTP error! status: ${response.status}`);
+     }
+     const chatData = await response.json();
+     messages.value = chatData.conversation; // Cargar los mensajes del chat seleccionado
+     currentChatId.value = chatId; // Establecer el chat activo
+     console.log('Loaded chat:', chatData);
+
+  } catch (error) {
+    console.error(`Error loading chat with ID ${chatId}:`, error);
+    // Opcional: mostrar un mensaje de error al usuario
+  }
+};
+
+// Función para iniciar un nuevo chat (limpiar la vista actual)
+const startNewChat = () => {
+  messages.value = [];
+  currentChatId.value = null;
+  formData.value.question = ''; // Limpiar input también
+};
 
 const handleNewMessage = async () => {
   if (!formData.value.question.trim()) return
 
-  const userMessage = {
-    id: Date.now(),
+  const userMessageContent = formData.value.question.trim();
+
+  // Agregar mensaje del usuario inmediatamente a la UI
+  messages.value.push({
     role: 'user',
-    content: formData.value.question
-  }
-  messages.value.push(userMessage)
+    content: userMessageContent,
+    timestamp: new Date() // Usar timestamp local para la UI inmediata
+  });
 
   // Guardar la pregunta actual y limpiar el input inmediatamente
-  const currentQuestion = formData.value.question
   formData.value.question = ''
 
   loading.value = true
   try {
+    // Enviar el historial completo (incluyendo el nuevo mensaje del usuario) y el chatId
     const messagesToSend = [
       systemMessage,
+      // Asegurarse de enviar solo los mensajes de la conversación, no todo el objeto con ID, etc.
       ...messages.value.map(msg => ({ role: msg.role, content: msg.content }))
-    ]
+    ];
 
     const response = await fetch('http://localhost:3001/api/recognize', {
       method: 'POST',
@@ -255,7 +245,8 @@ const handleNewMessage = async () => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ 
-        messages: messagesToSend
+        messages: messagesToSend,
+        chatId: currentChatId.value // Enviar el ID del chat actual
       })
     })
 
@@ -265,13 +256,24 @@ const handleNewMessage = async () => {
       throw new Error(`HTTP error! status: ${response.status}, body: ${JSON.stringify(responseData)}`)
     }
 
+    // Agregar la respuesta de la IA a la UI
     const aiMessage = {
-      id: Date.now() + 1,
-      role: 'assistant',
-      content: responseData.details.mainInfo
+       // Usar el timestamp del backend si es posible, o generar uno local
+       role: 'assistant',
+       content: responseData.aiResponse.details.mainInfo, // Corregido nuevamente para acceder a aiResponse
+       timestamp: new Date() // Usar timestamp local por ahora, ajustar si el backend lo devuelve
     }
     messages.value.push(aiMessage)
-    saveChatToHistory()
+
+    // Si el backend devolvió un nuevo chatId (indicando que se creó un nuevo chat)
+    // Nota: Ahora el backend siempre debería devolver el chatId en la respuesta.
+    if (responseData.chatId) {
+       currentChatId.value = responseData.chatId;
+       console.log('Chat ID received/updated:', currentChatId.value);
+    }
+
+    // Después de un envío exitoso (ya sea nuevo chat o actualización), recargar la lista de historiales
+    loadChatHistoryList();
 
   } catch (error) {
     console.error('Error:', error)
@@ -290,30 +292,46 @@ const handleNewMessage = async () => {
     }
 
     const errorMessage = {
-       id: Date.now() + 1,
+       id: Date.now() + 1, // ID temporal para la UI
        role: 'assistant',
-       content: userErrorMessage
+       content: userErrorMessage,
+       timestamp: new Date() // Timestamp local
     }
     messages.value.push(errorMessage)
-    saveChatToHistory()
 
   } finally {
     loading.value = false
+     // Desplazar al final del chat después de cargar/recibir respuesta
+     nextTick(() => {
+       const chatContainer = document.querySelector('.chat-container');
+       if (chatContainer) {
+         chatContainer.scrollTop = chatContainer.scrollHeight;
+       }
+     });
   }
 }
 
 onMounted(() => {
   // Simular tiempo de carga inicial
   setTimeout(() => {
-    isLoading.value = false
-  }, 2000)
+    isLoading.value = false;
+    // Cargar la lista de historiales inmediatamente después de que termine la carga inicial
+    loadChatHistoryList();
+    console.log('onMounted finished, loading history list.');
+  }, 2000);
+});
 
-  // Eliminar la carga del historial guardado para que se reinicie con cada carga de página
-  // const savedHistory = localStorage.getItem('chatHistory')
-  // if (savedHistory) {
-  //   chatHistory.value = JSON.parse(savedHistory)
-  // }
-})
+// Eliminar la sección de historial de chats antiguos del template
+// La restauraremos con el nuevo formato a continuación.
+// <!-- Chat History Section -->
+// <section class="max-w-4xl mx-auto py-6 sm:px-6 lg:px-8 w-full">
+//   <div class="px-4 py-6 sm:px-0">
+//     <h2 class="text-2xl font-bold text-gray-800 mb-4">Historial de Chats</h2>
+//     <div class="bg-white rounded-lg shadow-lg p-6">
+//       ...
+//     </div>
+//   </div>
+// </section>
 </script>
 
 <style scoped>
@@ -393,12 +411,27 @@ onMounted(() => {
 /* New styles for chat UI */
 .chat-container {
   scroll-behavior: smooth;
+  display: flex; /* Habilitar flexbox */
+  flex-direction: column; /* Apilar elementos verticalmente */
+  justify-content: flex-start; /* Alinear elementos al inicio (parte superior) */
+  overflow-y: auto; /* Asegura que la barra de scroll aparezca cuando sea necesario */
+  flex-grow: 1; /* Asegura que ocupe el espacio disponible */
+  padding: 1.5rem; /* Tailwind default p-6 */
+  height: 0; /* Esencial para que flex-grow funcione correctamente con overflow */
+  min-height: 300px; /* Valor fijo razonable, puedes ajustarlo */
 }
 
 .message-wrapper {
   opacity: 0;
   transform: translateY(20px);
   animation: messageAppear 0.3s ease forwards;
+  margin-bottom: 1.5rem; /* Espacio entre mensajes */
+}
+
+/* Ajustes para el contenedor de mensajes AI para asegurar consistencia */
+.ai-message,
+.user-message {
+    padding: 1rem; /* Tailwind default p-4 */
 }
 
 @keyframes messageAppear {
@@ -452,6 +485,8 @@ onMounted(() => {
 
 .welcome-message {
   animation: fadeIn 1s ease-out;
+  margin-top: auto; /* Esto lo dejaré, ayuda si el chat está vacío a que el mensaje de bienvenida se quede abajo */
+  padding-bottom: 1.5rem; /* Padding inferior para separarlo del input si el chat está vacío */
 }
 
 @keyframes fadeIn {
@@ -467,5 +502,50 @@ button, textarea {
 /* Hover effects for messages */
 .message-bubble:hover {
   box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Asegurar que el contenedor principal de main permite a los hijos flex-grow y tiene altura */
+main.flex {
+    align-items: flex-start; /* Alinear los elementos hijos flex (sidebar y chat column) en la parte superior */
+    min-height: 0; /* Necesario para que flex-grow en hijos funcione a veces */
+    flex-grow: 1; /* Asegurar que el main crece */
+    height: 100%; /* Asegurar que main ocupa la altura disponible de su padre (.min-h-screen) */
+    display: flex; /* Asegurar que main es un contenedor flex */
+    flex-direction: row; /* Los hijos (sidebar y chat column) están en fila */
+}
+
+/* Asegurar que la columna del chat y input ocupa el espacio disponible y tiene altura */
+.flex-grow.flex.flex-col {
+    flex-grow: 1;
+    min-width: 0;
+    min-height: 0; /* Necesario para que flex-grow en .chat-container funcione */
+    height: 100%; /* Asegurar que la columna ocupa la altura de su padre main */
+     display: flex; /* Asegurar que es un contenedor flex */
+     flex-direction: column; /* Apilar hijos verticalmente */
+}
+
+/* Asegurar que el contenedor raíz tiene min-height 100vh y es flex column */
+.min-h-screen {
+    min-height: 100vh; /* Asegurar que el contenedor principal ocupa al menos toda la altura de la ventana */
+    display: flex; /* Permitir que los hijos directos (header, main, footer) sean flexibles */
+    flex-direction: column; /* Apilar header, main, footer verticalmente */
+}
+
+/* Asegurar que html y body tienen altura completa para que 100vh funcione correctamente */
+html, body, #app {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    display: flex; /* Asegurar que son flex containers */
+    flex-direction: column; /* Apilar verticalmente */
+}
+
+/* Ajustes para la barra lateral del historial */
+aside.w-64 {
+    /* La clase w-64 ya establece el ancho. Aseguramos la altura. */
+    height: 100%; /* Ocupar la altura completa del contenedor flex padre (main.flex) */
+    /* overflow-y: auto; ya está en el template, aseguramos que funcione con la altura */
+    /* min-height: 0; */ /* Puede ser útil en algunos casos flex */
+    box-sizing: border-box; /* Asegura que padding y border se incluyan en el tamaño */
 }
 </style> 

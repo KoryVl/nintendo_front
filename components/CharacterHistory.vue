@@ -2,26 +2,20 @@
   <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
     <h2 class="text-2xl font-bold mb-6 text-gray-800">Historial de Exploración</h2>
     
-    <div v-if="history.length > 0" class="space-y-4">
-      <div
-        v-for="item in history"
-        :key="item._id"
-        class="bg-white rounded-lg shadow p-4"
-      >
+    <div v-if="currentHistory" class="space-y-4">
+      <div class="bg-white rounded-lg shadow p-4">
         <div class="flex justify-between items-start">
           <div>
             <h3 class="text-lg font-semibold text-gray-800">
-              {{ item.parameters.question }}
+              {{ currentHistory.question }}
             </h3>
             <div class="mt-2 text-sm text-gray-600">
-              <p v-if="item.parameters.era">Era: {{ item.parameters.era }}</p>
-              <p v-if="item.parameters.franchise">Franquicia: {{ item.parameters.franchise }}</p>
-              <p v-if="item.parameters.type">Tipo: {{ item.parameters.type }}</p>
+              <p>Fecha: {{ formatDate(currentHistory.timestamp) }}</p>
             </div>
           </div>
           <button
-            @click="selectedItem = item"
-            class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 transition-colors"
+            @click="showDetails"
+            class="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600 transition-colors"
           >
             Ver detalles
           </button>
@@ -35,8 +29,8 @@
 
     <!-- Modal de Detalles -->
     <div
-      v-if="selectedItem"
-      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+      v-if="isModalOpen"
+      class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
       @click="closeDetails"
     >
       <div
@@ -56,36 +50,26 @@
         </div>
 
         <div class="space-y-4">
-          <!-- Parámetros de Búsqueda -->
-          <div v-if="selectedItem.parameters.era || selectedItem.parameters.franchise || selectedItem.parameters.type">
-            <h4 class="font-semibold text-gray-700">Parámetros de Búsqueda</h4>
+          <!-- Pregunta -->
+          <div>
+            <h4 class="font-semibold text-gray-700">Pregunta</h4>
             <div class="bg-gray-50 p-3 rounded">
-              <p v-if="selectedItem.parameters.era"><span class="font-medium">Era:</span> {{ selectedItem.parameters.era }}</p>
-              <p v-if="selectedItem.parameters.franchise"><span class="font-medium">Franquicia:</span> {{ selectedItem.parameters.franchise }}</p>
-              <p v-if="selectedItem.parameters.type"><span class="font-medium">Tipo de Información:</span> {{ selectedItem.parameters.type }}</p>
-              <p v-if="selectedItem.parameters.additionalDetails">
-                <span class="font-medium">Detalles Adicionales:</span> {{ selectedItem.parameters.additionalDetails }}
-              </p>
+              <p>{{ currentHistory.question }}</p>
             </div>
           </div>
 
-          <!-- Resultado -->
+          <!-- Respuesta -->
           <div>
-            <h4 class="font-semibold text-gray-700">Resultado</h4>
+            <h4 class="font-semibold text-gray-700">Respuesta</h4>
             <div class="bg-gray-50 p-3 rounded">
-              <div v-if="selectedItem.result.details && selectedItem.result.details.mainInfo">
-                <p>{{ selectedItem.result.details.mainInfo }}</p>
-              </div>
-              <div v-else>
-                <p class="text-gray-600">No hay información principal disponible para esta búsqueda.</p>
-              </div>
+              <p>{{ currentHistory.response }}</p>
             </div>
           </div>
 
           <!-- Fecha y Hora -->
           <div>
             <h4 class="font-semibold text-gray-700">Fecha y Hora</h4>
-            <p class="text-gray-600">{{ new Date(selectedItem.timestamp).toLocaleString() }}</p>
+            <p class="text-gray-600">{{ formatDate(currentHistory.timestamp) }}</p>
           </div>
         </div>
       </div>
@@ -94,23 +78,45 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, defineProps, watch } from 'vue'
 
 const props = defineProps({
   history: {
-    type: Array,
-    default: () => []
+    type: Object,
+    default: () => null
   }
 })
 
-const selectedItem = ref(null)
+const currentHistory = ref(null)
+const isModalOpen = ref(false)
 
-const showDetails = (item) => {
-  selectedItem.value = item
+// Observar cambios en el historial
+watch(() => props.history, (newHistory) => {
+  if (newHistory) {
+    currentHistory.value = {
+      question: newHistory.question,
+      response: newHistory.response,
+      timestamp: new Date()
+    }
+  }
+}, { immediate: true })
+
+const formatDate = (date) => {
+  return new Date(date).toLocaleString('es-ES', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+}
+
+const showDetails = () => {
+  isModalOpen.value = true
 }
 
 const closeDetails = () => {
-  selectedItem.value = null
+  isModalOpen.value = false
 }
 </script>
 
